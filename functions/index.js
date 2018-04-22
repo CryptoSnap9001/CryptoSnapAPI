@@ -72,9 +72,14 @@ exports.balance = functions.https.onRequest((request, response) => {
             .accountId( user.public_key )
             .call()
             .then( accountResult => {
-                return response.send( accountResult );
+                return response.send( {
+                    success: true,
+                    balances: accountResult.balances
+                });
             }).catch( error => {
-                return response.send( { success: false, message: "Unable to load stellar account" } )
-            })
+                return response.send(
+                    { success: false, message: "Unable to load stellar account" }
+                )
+            });
     });
 });
