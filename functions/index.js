@@ -4,9 +4,10 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 // StellarSdk is required to connect to the Stellar blockchain network
-var StellarSdk = require('stellar-sdk');
+const StellarSdk = require('stellar-sdk');
+StellarSdk.Network.useTestNetwork(); // use the testing network for now. Do not run on production network
 // Connect to the Stellar Horizon Server
-var server = new StellarSdk.Server('https://horizon-testnet.stellar.org');
+const server = new StellarSdk.Server('https://horizon-testnet.stellar.org');
 
 /**
  * createStellarAccount
@@ -47,7 +48,8 @@ exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
         return admin.database().ref( `/users/${user_id}` )
             .update( { 
                 secret: pair.secret(),
-                public_key: pair.publicKey()
+                public_key: pair.publicKey(),
+                sequence_number: 0,
             });
     });
 
@@ -108,6 +110,33 @@ exports.transaction = functions.https.onRequest((request, response) => {
         // get the users
         const user_from = users[ request.body.from ];
         const user_to = users[ request.body.to ];
-        return response.send( [ user_from, user_to ] );
-    })
+        // make sure that the two users exist
+        if ( user_from === null || user_to === null ){
+            return invalidRequest( request );
+        }
+
+        const sourceKeypair = StellarSdk.Keypair.fromSecret( user_from.secret );
+        const receiverPublicKey = user_to.public_key;
+
+        let account = new StellarSdk.Account( sourceKeypair.publicKey(), user_from.sequence_number );
+        let transaction = new StellarSdk.TransactionBuilder( account )
+            .addOperation( StellarSdk.Operation.payment({
+                destination: receiverPublicKey,
+                asset:  StellarSdk.Asset.native(),
+                amount: request.body.amount.toString()
+            }))
+            .build();
+        transaction.sign( sourceKeypair );
+
+        // update the sequence number
+        admin.database().ref( `/users/${request.body.from}` ).update({
+            sequence_number: user_from.sequence_number + 1
+        });
+
+        server.submitTransaction( transaction ).then( result => {
+            return response.send( result );
+        }).catch( error => {
+            return response.send( error );
+        });
+    });
 });
