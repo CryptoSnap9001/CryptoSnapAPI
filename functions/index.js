@@ -71,10 +71,15 @@ exports.balance = functions.https.onRequest((request, response) => {
     // get the user_id from the request body
     const user_id = request.body.user_id;
     // get the user from the database
-    admin.database().ref( `/users/${user_id}` ).on( 'value', snapshot => {
+    admin.database().ref( `/users/${user_id}` ).once( 'value', snapshot => {
         let user = snapshot.val();
         // load the account Stellar for the user
         server.loadAccount( user.public_key ).then( account => {
+
+            admin.database().ref( `/users/${user_id}` ).update(
+                { sequence_number: account.sequence }
+            )
+            
             return response.send({
                 success: true,
                 balances: account.balances
@@ -106,7 +111,7 @@ exports.transaction = functions.https.onRequest((request, response) => {
         return (sequence_number || 0) + 1;
     });
     // load all the users as we need two of them
-    admin.database().ref('/users').on( 'value', snapshot => {
+    admin.database().ref('/users').once( 'value', snapshot => {
         const users = snapshot.val();
         // get the users
         const user_from = users[ request.body.from ];
