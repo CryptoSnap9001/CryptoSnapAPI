@@ -82,10 +82,10 @@ exports.balance = functions.https.onRequest((request, response) => {
             
             return response.send({
                 success: true,
-                balances: account.balances
+                balance: account.balances[0].balance
             })
         }).catch( error => {
-            return response.send(
+            return response.status(500).send(
                 { success: false, message: "Unable to load stellar account" }
             )
         });
