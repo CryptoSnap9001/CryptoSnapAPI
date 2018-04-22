@@ -51,7 +51,7 @@ exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
         console.log( `Creating stellar account for ${user_id}` );
         // use the testing goverment wallet
         let govKeys = user.type === 20 ? 
-            new StellarSdk.Keypair.fromSecret(
+            StellarSdk.Keypair.fromSecret(
                 "SAJNXVDDTWYQR3CNN4V74CKHIMRLSGJEIICBM7B57ZK5VMHOKP7C6TBJ"
             ) : 
             false;
