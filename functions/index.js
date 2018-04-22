@@ -105,8 +105,8 @@ exports.transaction = functions.https.onRequest((request, response) => {
         return invalidRequest( response );
     }
     // update the sequence number
-    admin.database().ref( `/users/${request.body.from}` ).update({
-        sequence_number: user_from.sequence_number + 1
+    admin.database().ref( `/users/${request.body.from}/sequence_number` ).transaction( sequence_number => {
+        return (sequence_number || 0) + 1;
     });
     // load all the users as we need two of them
     admin.database().ref('/users').on( 'value', snapshot => {
