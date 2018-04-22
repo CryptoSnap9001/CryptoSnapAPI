@@ -147,7 +147,7 @@ exports.transaction = functions.https.onRequest((request, response) => {
             .then( result => {
                 return response.send({
                     success: true,
-                    message: "Transaction Complated"
+                    message: "Transaction Approved"
                 });
             })
             .catch( error => {
