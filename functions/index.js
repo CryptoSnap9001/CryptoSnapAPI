@@ -6,7 +6,7 @@ admin.initializeApp();
 // StellarSdk is required to connect to the Stellar blockchain network
 var StellarSdk = require('stellar-sdk');
 // Connect to the Stellar Horizon Server
-const StellarServer = new StellarSdk.Server('https://horizon-testnet.stellar.org');
+var server = new StellarSdk.Server('https://horizon-testnet.stellar.org');
 
 /**
  * createStellarAccount
@@ -68,11 +68,13 @@ exports.balance = functions.https.onRequest((request, response) => {
     admin.database().ref( `/users/${user_id}` ).on( 'value', snapshot => {
         let user = snapshot.val();
         // load the account Stellar for the user
-        StellarSdk.loadAccount( user.public_key ).then( account => {
-            return response.send( account );
-        }).catch( error => {
-            console.error( error );
-            return response.send( { success: false, message: "Unable to load stellar account" } )
-        })
+        server.accounts()
+            .accountId( user.public_key )
+            .call()
+            .then( accountResult => {
+                return response.send( accountResult );
+            }).catch( error => {
+                return response.send( { success: false, message: "Unable to load stellar account" } )
+            })
     });
 });
