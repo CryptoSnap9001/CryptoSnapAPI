@@ -68,7 +68,7 @@ exports.balance = functions.https.onRequest((request, response) => {
     admin.database().ref( `/users/${user_id}` ).on( 'value', snapshot => {
         let user = snapshot.val();
         // load the account Stellar for the user
-        server.loadAccount( user.public_key ).then( account => {
+        StellarSdk.loadAccount( user.public_key ).then( account => {
             return response.send( account );
         }).catch( error => {
             console.error( error );
