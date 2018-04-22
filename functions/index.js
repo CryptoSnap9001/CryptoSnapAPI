@@ -67,31 +67,33 @@ const invalidRequest = ( response ) => {
  * HTTPS POST request to get the account balances of a user id
  */
 exports.balance = functions.https.onRequest((request, response) => {
-    if ( request.method !== "POST" || !request.body.user_id ){
-        return invalidRequest( response );
-    }
-    // get the user_id from the request body
-    const user_id = request.body.user_id;
-    // get the user from the database
-    admin.database().ref( `/users/${user_id}` ).once( 'value', snapshot => {
-        let user = snapshot.val();
-        // load the account Stellar for the user
-        server.loadAccount( user.public_key ).then( account => {
+    return cors(request, response, () => {
+        if ( request.method !== "POST" || !request.body.user_id ){
+            return invalidRequest( response );
+        }
+        // get the user_id from the request body
+        const user_id = request.body.user_id;
+        // get the user from the database
+        admin.database().ref( `/users/${user_id}` ).once( 'value', snapshot => {
+            let user = snapshot.val();
+            // load the account Stellar for the user
+            server.loadAccount( user.public_key ).then( account => {
 
-            admin.database().ref( `/users/${user_id}` ).update(
-                { sequence_number: account.sequence }
-            )
-            
-            return response.send({
-                success: true,
-                balance: account.balances[0].balance
-            })
-        }).catch( error => {
-            return response.status(500).send(
-                { success: false, message: "Unable to load stellar account" }
-            )
-        });
-    });
+                admin.database().ref( `/users/${user_id}` ).update(
+                    { sequence_number: account.sequence }
+                )
+                
+                return response.send({
+                    success: true,
+                    balance: account.balances[0].balance
+                })
+            }).catch( error => {
+                return response.status(500).send(
+                    { success: false, message: "Unable to load stellar account" }
+                )
+            }); // end stellar account
+        }); // end database connection
+    }); // end CORS
 });
 
 /**
@@ -101,62 +103,64 @@ exports.balance = functions.https.onRequest((request, response) => {
  */
 
 exports.transaction = functions.https.onRequest((request, response) => {
-    // validate the request
-    if ( 
-        request.method !== "POST" || 
-        !(request.body.from && request.body.to && request.body.amount)
-    ) {
-        return invalidRequest( response );
-    }
-    // update the sequence number
-    admin.database().ref( `/users/${request.body.from}/sequence_number` ).transaction( sequence_number => {
-        return (sequence_number || 0) + 1;
-    });
-    // load all the users as we need two of them
-    admin.database().ref('/users').once( 'value', snapshot => {
-        const users = snapshot.val();
-        // get the users
-        const user_from = users[ request.body.from ];
-        const user_to = users[ request.body.to ];
-        // make sure that the two users exist
-        if ( user_from === null || user_to === null ){
-            return invalidRequest( request );
+    return cors(request, response, () => {
+        // validate the request
+        if ( 
+            request.method !== "POST" || 
+            !(request.body.from && request.body.to && request.body.amount)
+        ) {
+            return invalidRequest( response );
         }
-
-        const sourceKeypair = StellarSdk.Keypair.fromSecret( user_from.secret );
-        const destinationId = user_to.public_key;
-
-        server.loadAccount( destinationId )
-            .catch( StellarSdk.NotFoundError, error => {
+        // update the sequence number
+        admin.database().ref( `/users/${request.body.from}/sequence_number` ).transaction( sequence_number => {
+            return (sequence_number || 0) + 1;
+        });
+        // load all the users as we need two of them
+        admin.database().ref('/users').once( 'value', snapshot => {
+            const users = snapshot.val();
+            // get the users
+            const user_from = users[ request.body.from ];
+            const user_to = users[ request.body.to ];
+            // make sure that the two users exist
+            if ( user_from === null || user_to === null ){
                 return invalidRequest( request );
-            })
-            .then(() => {
-                return server.loadAccount( sourceKeypair.publicKey() );
-            })
-            .then( sourceAccount => {
-                let transaction = new StellarSdk.TransactionBuilder(sourceAccount)
-                    .addOperation(StellarSdk.Operation.payment({
-                        destination: destinationId,
-                        asset: StellarSdk.Asset.native(),
-                        amount: request.body.amount.toString()
-                    }))
-                    .build();
+            }
 
-                transaction.sign( sourceKeypair );
+            const sourceKeypair = StellarSdk.Keypair.fromSecret( user_from.secret );
+            const destinationId = user_to.public_key;
 
-                return server.submitTransaction( transaction );
-            })
-            .then( result => {
-                return response.send({
-                    success: true,
-                    message: "Transaction Approved"
+            server.loadAccount( destinationId )
+                .catch( StellarSdk.NotFoundError, error => {
+                    return invalidRequest( request );
+                })
+                .then(() => {
+                    return server.loadAccount( sourceKeypair.publicKey() );
+                })
+                .then( sourceAccount => {
+                    let transaction = new StellarSdk.TransactionBuilder(sourceAccount)
+                        .addOperation(StellarSdk.Operation.payment({
+                            destination: destinationId,
+                            asset: StellarSdk.Asset.native(),
+                            amount: request.body.amount.toString()
+                        }))
+                        .build();
+
+                    transaction.sign( sourceKeypair );
+
+                    return server.submitTransaction( transaction );
+                })
+                .then( result => {
+                    return response.send({
+                        success: true,
+                        message: "Transaction Approved"
+                    });
+                })
+                .catch( error => {
+                    return response.send({
+                        success: false,
+                        message: "Transaction Declined"
+                    });
                 });
-            })
-            .catch( error => {
-                return response.send({
-                    success: false,
-                    message: "Transaction Declined"
-                });
-            });
+        });
     });
 });
