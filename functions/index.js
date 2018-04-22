@@ -18,7 +18,7 @@ const server = new StellarSdk.Server('https://horizon-testnet.stellar.org');
  * 
  * @param {StellarSdk.Keypair} pair 
  */
-const createStellarAccount = ( pair, destinationId, amount ) => {
+const createStellarAccount = ( pair, govKeys, amount ) => {
     request.get({
         url: 'https://friendbot.stellar.org',
         qs: { addr: pair.publicKey() },
@@ -29,8 +29,8 @@ const createStellarAccount = ( pair, destinationId, amount ) => {
         }
         else {
           console.log('Stellar account success :)\n', body);
-          if ( destinationId && amount ) {
-            createTransaction( destinationId, pair, amount );
+          if ( govKeys && amount ) {
+            createTransaction( pair.publicKey(), govKeys, amount );
           }
         }
     });
@@ -50,13 +50,11 @@ exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
         // create a wallet for them in the background
         console.log( `Creating stellar account for ${user_id}` );
         // use the testing goverment wallet
-        let govKeys = user.type === 20 ? 
-            StellarSdk.Keypair.fromSecret(
-                "SAJNXVDDTWYQR3CNN4V74CKHIMRLSGJEIICBM7B57ZK5VMHOKP7C6TBJ"
-            ) : 
-            false;
+        let govKeys = StellarSdk.Keypair.fromSecret(
+            "SAJNXVDDTWYQR3CNN4V74CKHIMRLSGJEIICBM7B57ZK5VMHOKP7C6TBJ"
+        );
         // and create the account
-        createStellarAccount( govKeys, pair.publicKey(), user.benefit );
+        createStellarAccount( pair, user.type == 20 ? govKeys : false, user.benefit );
         // update the database with the encryption secrets
         return admin.database().ref( `/users/${user_id}` )
             .update( { 
