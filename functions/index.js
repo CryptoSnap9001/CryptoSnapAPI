@@ -62,6 +62,39 @@ const invalidRequest = ( response ) => {
 }
 
 /**
+ * newUser
+ * 
+ * HTTPS post request to create new user
+ */
+exports.newUser = functions.https.onRequest( (request, response) => {
+    return cors(request, response, () => {
+        if ( request.method !== "POST" ) {
+            return invalidRequest( response );
+        }
+
+        const email = request.body.email;
+        const password = request.body.password;
+        const benifit  = request.body.benifit;
+
+        admin.auth().createUser({
+            email: email,
+            password: password
+        }).then( userRecord => {
+            admin.database().ref('/users')
+                .child( userRecord.uid )
+                .set({
+                    email:  email,
+                    type:   20,
+                    benifit: benifit
+                });
+            return response.send( { success: true });
+        }).catch( error => {
+            return response.send( { success: false });
+        });
+    });
+});
+
+/**
  * balance
  * 
  * HTTPS POST request to get the account balances of a user id
