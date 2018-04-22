@@ -118,7 +118,7 @@ exports.transaction = functions.https.onRequest((request, response) => {
         const sourceKeypair = StellarSdk.Keypair.fromSecret( user_from.secret );
         const receiverPublicKey = user_to.public_key;
 
-        let account = new StellarSdk.Account( sourceKeypair.publicKey(), user_from.sequence_number );
+        let account = new StellarSdk.Account( sourceKeypair.publicKey(), user_from.sequence_number.toString() );
         let transaction = new StellarSdk.TransactionBuilder( account )
             .addOperation( StellarSdk.Operation.payment({
                 destination: receiverPublicKey,
