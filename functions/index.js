@@ -50,11 +50,11 @@ exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
         // create a wallet for them in the background
         console.log( `Creating stellar account for ${user_id}` );
         // use the testing goverment wallet
-        let govKeys = StellarSdk.Keypair.fromSecret(
+        const govKeys = StellarSdk.Keypair.fromSecret(
             "SAJNXVDDTWYQR3CNN4V74CKHIMRLSGJEIICBM7B57ZK5VMHOKP7C6TBJ"
         );
         // and create the account
-        createStellarAccount( pair, user.type == 20 ? govKeys : false, user.benefit );
+        createStellarAccount( pair, user.type === 20 ? govKeys : false, user.benefit );
         // update the database with the encryption secrets
         return admin.database().ref( `/users/${user_id}` )
             .update( { 
