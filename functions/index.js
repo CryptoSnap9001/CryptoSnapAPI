@@ -3,6 +3,8 @@ const functions = require('firebase-functions');
 // The Firebase Admin SDK to access the Firebase Realtime Database.
 const admin = require('firebase-admin');
 admin.initializeApp();
+// allow CORS
+const cors = require('cors')({origin: true});
 // StellarSdk is required to connect to the Stellar blockchain network
 const StellarSdk = require('stellar-sdk');
 StellarSdk.Network.useTestNetwork(); // use the testing network for now. Do not run on production network
