@@ -1,18 +1,12 @@
+const request = require('request');
 const functions = require('firebase-functions');
-var request = require('request');
-// // Create and Deploy Your First Cloud Functions
-// // https://firebase.google.com/docs/functions/write-firebase-functions
-//
-// exports.helloWorld = functions.https.onRequest((request, response) => {
-//  response.send("Hello from Firebase!");
-// });
-
 // The Firebase Admin SDK to access the Firebase Realtime Database.
 const admin = require('firebase-admin');
 admin.initializeApp();
-
 // StellarSdk is required to connect to the Stellar blockchain network
 var StellarSdk = require('stellar-sdk');
+// Connect to the Stellar Horizon Server
+const StellarServer = new StellarSdk.Server('https://horizon-testnet.stellar.org');
 
 /**
  * createStellarAccount
@@ -56,3 +50,29 @@ exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
                 public_key: pair.publicKey()
             });
     });
+
+/**
+ * balance
+ * 
+ * HTTPS POST request to get the account balances of a user id
+ */
+exports.balance = functions.https.onRequest((request, response) => {
+    if ( request.method !== "POST" || !request.body.user_id ){
+        return response.status(400).send(
+            { success: false, message: "Invalid Request" } 
+        );
+    }
+    // get the user_id from the request body
+    const user_id = request.body.user_id;
+    // get the user from the database
+    admin.database().ref( `/users/${user_id}` ).on( 'value', snapshot => {
+        let user = snapshot.val();
+        // load the account Stellar for the user
+        server.loadAccount( user.public_key ).then( account => {
+            return response.send( account );
+        }).catch( error => {
+            console.error( error );
+            return response.send( { success: false, message: "Unable to load stellar account" } )
+        })
+    });
+});
