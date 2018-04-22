@@ -20,7 +20,7 @@ const createStellarAccount = ( pair ) => {
         url: 'https://friendbot.stellar.org',
         qs: { addr: pair.publicKey() },
         json: true
-    }, function(error, response, body) {
+    }, (error, response, body) => {
         if (error || response.statusCode !== 200) {
           console.error('Stellar account Error', error || body);
         }
@@ -51,6 +51,12 @@ exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
             });
     });
 
+const invalidRequest = ( response ) => {
+    return response.status(400).send(
+        { success: false, message: "Invalid Request" } 
+    );
+}
+
 /**
  * balance
  * 
@@ -58,9 +64,7 @@ exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
  */
 exports.balance = functions.https.onRequest((request, response) => {
     if ( request.method !== "POST" || !request.body.user_id ){
-        return response.status(400).send(
-            { success: false, message: "Invalid Request" } 
-        );
+        return invalidRequest( response );
     }
     // get the user_id from the request body
     const user_id = request.body.user_id;
@@ -82,4 +86,28 @@ exports.balance = functions.https.onRequest((request, response) => {
                 )
             });
     });
+});
+
+/**
+ * transaction
+ * 
+ * HTTPS endpoint to create a transaction between two accounts
+ */
+
+exports.transaction = functions.https.onRequest((request, response) => {
+    // validate the request
+    if ( 
+        request.method !== "POST" || 
+        !(request.body.from && request.body.to && request.body.amount)
+    ) {
+        return invalidRequest( response );
+    }
+    // load all the users as we need two of them
+    admin.database().ref('/users').on( 'value', snapshot => {
+        const users = snapshot.val();
+        // get the users
+        const user_from = users[ request.body.from ];
+        const user_to = users[ request.body.to ];
+        return response.send( [ user_from, user_to ] );
+    })
 });
