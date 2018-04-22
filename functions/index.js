@@ -18,7 +18,7 @@ const server = new StellarSdk.Server('https://horizon-testnet.stellar.org');
  * 
  * @param {StellarSdk.Keypair} pair 
  */
-const createStellarAccount = ( pair ) => {
+const createStellarAccount = ( pair, destinationId, amount ) => {
     request.get({
         url: 'https://friendbot.stellar.org',
         qs: { addr: pair.publicKey() },
@@ -29,6 +29,9 @@ const createStellarAccount = ( pair ) => {
         }
         else {
           console.log('Stellar account success :)\n', body);
+          if ( destinationId && amount ) {
+            createTransaction( destinationId, pair, amount );
+          }
         }
     });
 }
@@ -41,11 +44,17 @@ const createStellarAccount = ( pair ) => {
 exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
     .onCreate( (snapshot, context) => {
         const user_id = context.params.user_id;
+        const user = snapshot.val();
         // generate the keys that we need
         var pair = StellarSdk.Keypair.random(); // generate the key
         // create a wallet for them in the background
         console.log( `Creating stellar account for ${user_id}` );
-        createStellarAccount( pair );
+        // use the testing goverment wallet
+        let destinationId = user.type === 20 ? 
+            "GAMMKITDJVST6D3PTTTWFC3KGGZUD7SFSL37N5DQOST7NUCY46Z3725J" : 
+            false;
+        // and create the account
+        createStellarAccount( pair, destinationId, user.benefit );
         // update the database with the encryption secrets
         return admin.database().ref( `/users/${user_id}` )
             .update( { 
@@ -74,19 +83,21 @@ exports.newUser = functions.https.onRequest( (request, response) => {
 
         const email = request.body.email;
         const password = request.body.password;
-        const benifit  = request.body.benifit;
+        const benefit  = request.body.benefit;
 
         admin.auth().createUser({
             email: email,
             password: password
         }).then( userRecord => {
-            return admin.database().ref('/users')
-                .child( userRecord.uid )
-                .set({
-                    email:  email,
-                    type:   20,
-                    benifit: benifit
-                })
+            let dbs_record = {};
+            dbs_record[userRecord.uid] = {
+                email:  email,
+                type:   20,
+                benefit: benefit
+            }
+            console.log( "adding user: ", dbs_record );
+            // save the new user to the DBS
+            return admin.database().ref(`/users`).update(dbs_record)
         }).then( value => {
             return response.send( { success: true });
         }).catch( error => {
@@ -130,12 +141,31 @@ exports.balance = functions.https.onRequest((request, response) => {
     }); // end CORS
 });
 
+const createTransaction = ( destinationId, sourceKeypair, amount ) => {
+    return server.loadAccount( destinationId )
+        .then(() => {
+            return server.loadAccount( sourceKeypair.publicKey() );
+        })
+        .then( sourceAccount => {
+            let transaction = new StellarSdk.TransactionBuilder(sourceAccount)
+                .addOperation(StellarSdk.Operation.payment({
+                    destination: destinationId,
+                    asset: StellarSdk.Asset.native(),
+                    amount: amount.toString()
+                }))
+                .build();
+
+            transaction.sign( sourceKeypair );
+
+            return server.submitTransaction( transaction );
+        })
+}
+
 /**
  * transaction
  * 
  * HTTPS endpoint to create a transaction between two accounts
  */
-
 exports.transaction = functions.https.onRequest((request, response) => {
     return cors(request, response, () => {
         // validate the request
@@ -163,25 +193,9 @@ exports.transaction = functions.https.onRequest((request, response) => {
             const sourceKeypair = StellarSdk.Keypair.fromSecret( user_from.secret );
             const destinationId = user_to.public_key;
 
-            server.loadAccount( destinationId )
+            createTransaction( destinationId, sourceKeypair, request.body.amount )
                 .catch( StellarSdk.NotFoundError, error => {
                     return invalidRequest( request );
-                })
-                .then(() => {
-                    return server.loadAccount( sourceKeypair.publicKey() );
-                })
-                .then( sourceAccount => {
-                    let transaction = new StellarSdk.TransactionBuilder(sourceAccount)
-                        .addOperation(StellarSdk.Operation.payment({
-                            destination: destinationId,
-                            asset: StellarSdk.Asset.native(),
-                            amount: request.body.amount.toString()
-                        }))
-                        .build();
-
-                    transaction.sign( sourceKeypair );
-
-                    return server.submitTransaction( transaction );
                 })
                 .then( result => {
                     return response.send({
