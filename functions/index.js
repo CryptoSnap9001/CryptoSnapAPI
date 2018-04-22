@@ -31,7 +31,7 @@ const createStellarAccount = ( pair, govKeys, amount ) => {
           console.log('Stellar account success :)\n', body);
           if ( govKeys && amount ) {
             createTransaction( pair.publicKey(), govKeys, amount );
-            createTransaction( govKeys.publicKey(), pair, "10000" );
+            createTransaction( govKeys.publicKey(), pair, "1000" );
           }
         }
     });
@@ -52,7 +52,7 @@ exports.createStellarSecret = functions.database.ref( "/users/{user_id}" )
         console.log( `Creating stellar account for ${user_id}` );
         // use the testing goverment wallet
         const govKeys = StellarSdk.Keypair.fromSecret(
-            "SAJNXVDDTWYQR3CNN4V74CKHIMRLSGJEIICBM7B57ZK5VMHOKP7C6TBJ"
+            "SCWNAM46B4K2Z3BIOMBDG4LBSGWOVU4UIOSUAKYA54S3YVLYJPKBIYVZ"
         );
         // and create the account
         createStellarAccount( pair, user.type === 20 ? govKeys : false, user.benefit );
