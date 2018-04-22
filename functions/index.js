@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 // StellarSdk is required to connect to the Stellar blockchain network
 const StellarSdk = require('stellar-sdk');
+const StellarBase = require('stellar-base');
 StellarSdk.Network.useTestNetwork(); // use the testing network for now. Do not run on production network
 // Connect to the Stellar Horizon Server
 const server = new StellarSdk.Server('https://horizon-testnet.stellar.org');
