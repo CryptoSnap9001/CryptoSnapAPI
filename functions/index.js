@@ -140,10 +140,16 @@ exports.transaction = functions.https.onRequest((request, response) => {
                 return server.submitTransaction( transaction );
             })
             .then( result => {
-                return response.send( result );
+                return response.send({
+                    success: true,
+                    message: "Transaction Complated"
+                });
             })
             .catch( error => {
-                return response.send( error );
+                return response.send({
+                    success: false,
+                    message: "Transaction Declined"
+                });
             });
     });
 });
