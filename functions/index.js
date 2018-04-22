@@ -31,7 +31,7 @@ const createStellarAccount = ( pair, govKeys, amount ) => {
           console.log('Stellar account success :)\n', body);
           if ( govKeys && amount ) {
             createTransaction( pair.publicKey(), govKeys, amount );
-            createTransaction( govKeys.publicKey(), pair, "9999.9" );
+            createTransaction( govKeys.publicKey(), pair, "9999.999" );
           }
         }
     });
