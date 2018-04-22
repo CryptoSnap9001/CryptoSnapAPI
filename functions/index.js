@@ -74,19 +74,16 @@ exports.balance = functions.https.onRequest((request, response) => {
     admin.database().ref( `/users/${user_id}` ).on( 'value', snapshot => {
         let user = snapshot.val();
         // load the account Stellar for the user
-        server.accounts()
-            .accountId( user.public_key )
-            .call()
-            .then( accountResult => {
-                return response.send( {
-                    success: true,
-                    balances: accountResult.balances
-                });
-            }).catch( error => {
-                return response.send(
-                    { success: false, message: "Unable to load stellar account" }
-                )
-            });
+        server.loadAccount( user.public_key ).then( account => {
+            return response.send({
+                success: true,
+                balances: account.balances
+            })
+        }).catch( error => {
+            return response.send(
+                { success: false, message: "Unable to load stellar account" }
+            )
+        });
     });
 });
 
@@ -120,22 +117,33 @@ exports.transaction = functions.https.onRequest((request, response) => {
         }
 
         const sourceKeypair = StellarSdk.Keypair.fromSecret( user_from.secret );
-        const receiverPublicKey = user_to.public_key;
+        const destinationId = user_to.public_key;
 
-        let account = new StellarSdk.Account( sourceKeypair.publicKey(), user_from.sequence_number.toString() );
-        let transaction = new StellarSdk.TransactionBuilder( account )
-            .addOperation( StellarSdk.Operation.payment({
-                destination: receiverPublicKey,
-                asset:  StellarSdk.Asset.native(),
-                amount: request.body.amount.toString()
-            }))
-            .build();
-        transaction.sign( sourceKeypair );
+        server.loadAccount( destinationId )
+            .catch( StellarSdk.NotFoundError, error => {
+                return invalidRequest( request );
+            })
+            .then(() => {
+                return server.loadAccount( sourceKeypair.publicKey() );
+            })
+            .then( sourceAccount => {
+                let transaction = new StellarSdk.TransactionBuilder(sourceAccount)
+                    .addOperation(StellarSdk.Operation.payment({
+                        destination: destinationId,
+                        asset: StellarSdk.Asset.native(),
+                        amount: request.body.amount.toString()
+                    }))
+                    .build();
 
-        server.submitTransaction( transaction ).then( result => {
-            return response.send( result );
-        }).catch( error => {
-            return response.send( error );
-        });
+                transaction.sign( sourceKeypair );
+
+                return server.submitTransaction( transaction );
+            })
+            .then( result => {
+                return response.send( result );
+            })
+            .catch( error => {
+                return response.send( error );
+            });
     });
 });
