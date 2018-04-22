@@ -80,16 +80,17 @@ exports.newUser = functions.https.onRequest( (request, response) => {
             email: email,
             password: password
         }).then( userRecord => {
-            admin.database().ref('/users')
+            return admin.database().ref('/users')
                 .child( userRecord.uid )
                 .set({
                     email:  email,
                     type:   20,
                     benifit: benifit
-                });
+                })
+        }).then( value => {
             return response.send( { success: true });
         }).catch( error => {
-            return response.send( { success: false });
+            return response.send( { success: false, error: error });
         });
     });
 });
